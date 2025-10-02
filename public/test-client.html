@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AuraLink Test Client</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .section h2 {
+            margin-top: 0;
+            color: #2c3e50;
+            font-size: 1.2rem;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .display {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-top: 10px;
+            border-radius: 4px;
+            min-height: 60px;
+            font-family: monospace;
+        }
+        .connection {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 10px;
+        }
+        .status {
+            display: inline-block;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background-color: #e74c3c;
+            margin-right: 5px;
+            vertical-align: middle;
+        }
+        .status.connected {
+            background-color: #2ecc71;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AuraLink MQTT Test Client</h1>
+        
+        <div class="connection">
+            <div class="status" id="connectionStatus"></div>
+            <span id="connectionText">Disconnected</span>
+        </div>
+
+        <div class="section">
+            <h2>MQTT Connection</h2>
+            <div class="form-group">
+                <label for="brokerUrl">Broker URL:</label>
+                <input type="text" id="brokerUrl" placeholder="broker.hivemq.com">
+            </div>
+            <div class="form-group">
+                <label for="brokerPort">Port:</label>
+                <input type="number" id="brokerPort" value="8884">
+            </div>
+            <div class="form-group">
+                <label for="clientId">Client ID:</label>
+                <input type="text" id="clientId" value="auralink-test-client">
+            </div>
+            <div class="form-group">
+                <label for="username">Username (optional):</label>
+                <input type="text" id="username">
+            </div>
+            <div class="form-group">
+                <label for="password">Password (optional):</label>
+                <input type="password" id="password">
+            </div>
+            <button id="connectBtn">Connect</button>
+            <button id="disconnectBtn">Disconnect</button>
+        </div>
+
+        <div class="grid">
+            <div class="section">
+                <h2>Send Sensor Data</h2>
+                <div class="form-group">
+                    <label for="temperature">Temperature (°C):</label>
+                    <input type="number" id="temperature" value="22.5" step="0.1">
+                </div>
+                <div class="form-group">
+                    <label for="humidity">Humidity (%):</label>
+                    <input type="number" id="humidity" value="45.0" step="0.1">
+                </div>
+                <button id="sendTempBtn">Send Temperature</button>
+                <button id="sendHumBtn">Send Humidity</button>
+                <button id="sendBothBtn">Send Both</button>
+            </div>
+
+            <div class="section">
+                <h2>AuraLink Backend Status</h2>
+                <button id="checkStatusBtn">Check Backend Status</button>
+                <div class="display" id="statusDisplay">No data yet</div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="section">
+                <h2>Received Quote</h2>
+                <div class="display" id="quoteDisplay">No quotes received</div>
+            </div>
+
+            <div class="section">
+                <h2>Received Email Summary</h2>
+                <div class="display" id="emailDisplay">No email summaries received</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Priority Level</h2>
+            <div class="display" id="priorityDisplay">No priority level received</div>
+        </div>
+
+        <div class="section">
+            <h2>Log</h2>
+            <div class="display" id="logDisplay"></div>
+            <button id="clearLogBtn">Clear Log</button>
+        </div>
+    </div>
+
+    <script>
+        // MQTT Client
+        let client = null;
+        let isConnected = false;
+        
+        // Elements
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const sendTempBtn = document.getElementById('sendTempBtn');
+        const sendHumBtn = document.getElementById('sendHumBtn');
+        const sendBothBtn = document.getElementById('sendBothBtn');
+        const checkStatusBtn = document.getElementById('checkStatusBtn');
+        const clearLogBtn = document.getElementById('clearLogBtn');
+        
+        const connectionStatus = document.getElementById('connectionStatus');
+        const connectionText = document.getElementById('connectionText');
+        const quoteDisplay = document.getElementById('quoteDisplay');
+        const emailDisplay = document.getElementById('emailDisplay');
+        const priorityDisplay = document.getElementById('priorityDisplay');
+        const statusDisplay = document.getElementById('statusDisplay');
+        const logDisplay = document.getElementById('logDisplay');
+        
+        // Topics
+        const TOPIC_TEMPERATURE = 'auralink/sensors/temperature';
+        const TOPIC_HUMIDITY = 'auralink/sensors/humidity';
+        const TOPIC_QUOTE = 'auralink/display/quote';
+        const TOPIC_EMAIL = 'auralink/display/email';
+        const TOPIC_PRIORITY = 'auralink/display/priority';
+        
+        // Add log entry
+        function log(message) {
+            const now = new Date();
+            const timestamp = now.toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logDisplay.appendChild(logEntry);
+            logDisplay.scrollTop = logDisplay.scrollHeight;
+        }
+        
+        // Connect to MQTT broker
+        connectBtn.addEventListener('click', () => {
+            const brokerUrl = document.getElementById('brokerUrl').value || 'broker.hivemq.com';
+            const brokerPort = parseInt(document.getElementById('brokerPort').value) || 8884;
+            const clientId = document.getElementById('clientId').value || `auralink-test-${Math.random().toString(16).substr(2, 8)}`;
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                // Create a client instance
+                client = new Paho.MQTT.Client(brokerUrl, brokerPort, clientId);
+                
+                // Set callback handlers
+                client.onConnectionLost = onConnectionLost;
+                client.onMessageArrived = onMessageArrived;
+                
+                // Connect the client
+                const options = {
+                    useSSL: true,
+                    timeout: 3,
+                    onSuccess: onConnect,
+                    onFailure: onFailure
+                };
+                
+                if (username) {
+                    options.userName = username;
+                    options.password = password;
+                }
+                
+                log(`Connecting to ${brokerUrl}:${brokerPort}...`);
+                client.connect(options);
+                
+            } catch (error) {
+                log(`Connection error: ${error.message}`);
+            }
+        });
+        
+        // Disconnect from MQTT broker
+        disconnectBtn.addEventListener('click', () => {
+            if (client && isConnected) {
+                client.disconnect();
+                updateConnectionStatus(false);
+                log('Disconnected from MQTT broker');
+            }
+        });
+        
+        // Send temperature reading
+        sendTempBtn.addEventListener('click', () => {
+            if (!isConnected) {
+                log('Not connected to MQTT broker');
+                return;
+            }
+            
+            const temperature = document.getElementById('temperature').value;
+            publishMessage(TOPIC_TEMPERATURE, temperature);
+            log(`Published temperature: ${temperature}°C`);
+        });
+        
+        // Send humidity reading
+        sendHumBtn.addEventListener('click', () => {
+            if (!isConnected) {
+                log('Not connected to MQTT broker');
+                return;
+            }
+            
+            const humidity = document.getElementById('humidity').value;
+            publishMessage(TOPIC_HUMIDITY, humidity);
+            log(`Published humidity: ${humidity}%`);
+        });
+        
+        // Send both readings
+        sendBothBtn.addEventListener('click', () => {
+            if (!isConnected) {
+                log('Not connected to MQTT broker');
+                return;
+            }
+            
+            const temperature = document.getElementById('temperature').value;
+            const humidity = document.getElementById('humidity').value;
+            
+            publishMessage(TOPIC_TEMPERATURE, temperature);
+            log(`Published temperature: ${temperature}°C`);
+            
+            setTimeout(() => {
+                publishMessage(TOPIC_HUMIDITY, humidity);
+                log(`Published humidity: ${humidity}%`);
+            }, 500);
+        });
+        
+        // Check backend status
+        checkStatusBtn.addEventListener('click', async () => {
+            try {
+                // Get the host from the current URL
+                const baseUrl = window.location.origin;
+                const response = await fetch(`${baseUrl}/api/status`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error ${response.status}`);
+                }
+                
+                const data = await response.json();
+                statusDisplay.textContent = JSON.stringify(data, null, 2);
+                log('Backend status checked');
+            } catch (error) {
+                log(`Error checking status: ${error.message}`);
+                statusDisplay.textContent = `Error: ${error.message}`;
+            }
+        });
+        
+        // Clear log
+        clearLogBtn.addEventListener('click', () => {
+            logDisplay.innerHTML = '';
+        });
+        
+        // MQTT Connection callbacks
+        function onConnect() {
+            log('Connected to MQTT broker');
+            updateConnectionStatus(true);
+            
+            // Subscribe to display topics
+            client.subscribe(TOPIC_QUOTE);
+            client.subscribe(TOPIC_EMAIL);
+            client.subscribe(TOPIC_PRIORITY);
+            
+            log('Subscribed to display topics');
+        }
+        
+        function onFailure(responseObject) {
+            log(`Connection failed: ${responseObject.errorMessage}`);
+            updateConnectionStatus(false);
+        }
+        
+        function onConnectionLost(responseObject) {
+            if (responseObject.errorCode !== 0) {
+                log(`Connection lost: ${responseObject.errorMessage}`);
+                updateConnectionStatus(false);
+            }
+        }
+        
+        function onMessageArrived(message) {
+            const topic = message.destinationName;
+            const payload = message.payloadString;
+            
+            log(`Received message on ${topic}: ${payload}`);
+            
+            switch (topic) {
+                case TOPIC_QUOTE:
+                    quoteDisplay.textContent = payload;
+                    break;
+                case TOPIC_EMAIL:
+                    emailDisplay.textContent = payload;
+                    break;
+                case TOPIC_PRIORITY:
+                    priorityDisplay.textContent = payload;
+                    break;
+            }
+        }
+        
+        // Helper functions
+        function updateConnectionStatus(connected) {
+            isConnected = connected;
+            connectionStatus.className = `status ${connected ? 'connected' : ''}`;
+            connectionText.textContent = connected ? 'Connected' : 'Disconnected';
+        }
+        
+        function publishMessage(topic, message) {
+            if (client && isConnected) {
+                const mqttMessage = new Paho.MQTT.Message(message.toString());
+                mqttMessage.destinationName = topic;
+                client.send(mqttMessage);
+            }
+        }
+        
+        // Initialize
+        window.addEventListener('load', () => {
+            log('AuraLink Test Client loaded');
+            
+            // Fill in broker URL if this page is hosted on Vercel
+            const hostname = window.location.hostname;
+            if (hostname.includes('vercel.app')) {
+                document.getElementById('brokerUrl').value = 'broker.hivemq.com';
+            }
+        });
+    </script>
+</body>
+</html>

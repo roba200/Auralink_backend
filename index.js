@@ -21,6 +21,7 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import fs from 'fs';
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -44,10 +45,53 @@ let latestSensorData = {
 // Load configuration
 let config;
 try {
+  // Check for Vercel environment
+  const isVercel = process.env.VERCEL === '1';
+  
+  // Log environment information
+  logger.info(`Running in ${process.env.NODE_ENV || 'development'} mode`);
+  if (isVercel) {
+    logger.info('Detected Vercel environment');
+  }
+  
   config = loadConfig();
 } catch (error) {
   logger.error('Failed to initialize due to configuration error:', error);
-  process.exit(1);
+  
+  // In production, continue even with config errors to allow health checks
+  if (process.env.NODE_ENV === 'production') {
+    logger.warn('Continuing with default configuration in production');
+    config = {
+      mqtt: {
+        brokerUrl: process.env.MQTT_BROKER_URL || 'mqtt://broker.hivemq.com:1883',
+        clientId: process.env.MQTT_CLIENT_ID || `auralink-backend-${Math.random().toString(16).slice(2, 8)}`,
+        username: process.env.MQTT_USERNAME || '',
+        password: process.env.MQTT_PASSWORD || '',
+        topics: {
+          temperature: process.env.MQTT_TOPIC_TEMPERATURE || 'auralink/sensors/temperature',
+          humidity: process.env.MQTT_TOPIC_HUMIDITY || 'auralink/sensors/humidity',
+          quote: process.env.MQTT_TOPIC_QUOTE || 'auralink/display/quote',
+          email: process.env.MQTT_TOPIC_EMAIL || 'auralink/display/email',
+          priority: process.env.MQTT_TOPIC_PRIORITY || 'auralink/display/priority'
+        }
+      },
+      openai: {
+        apiKey: process.env.OPENAI_API_KEY || ''
+      },
+      gmail: {
+        clientId: process.env.GMAIL_CLIENT_ID || '',
+        clientSecret: process.env.GMAIL_CLIENT_SECRET || '',
+        redirectUri: process.env.GMAIL_REDIRECT_URI || 'http://localhost:3000/auth/google/callback',
+        refreshToken: process.env.GMAIL_REFRESH_TOKEN || ''
+      },
+      server: {
+        port: parseInt(process.env.PORT || '3000', 10),
+        dataFilePath: process.env.DATA_FILE_PATH || './data/sensorData.json'
+      }
+    };
+  } else {
+    process.exit(1);
+  }
 }
 
 // Initialize handlers
@@ -64,6 +108,9 @@ app.use(session({
   resave: false,
   saveUninitialized: true
 }));
+
+// Serve static files from the public directory
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Initialize Passport
 app.use(passport.initialize());
@@ -231,6 +278,34 @@ async function initialize() {
     
     app.get('/auth/failed', (req, res) => {
       res.status(401).send('Authentication failed');
+    });
+    
+    // Add API health check endpoints
+    app.get('/', (req, res) => {
+      res.status(200).send('AuraLink Backend is running!');
+    });
+    
+    app.get('/test-client', (req, res) => {
+      res.sendFile(path.join(__dirname, 'public', 'test-client.html'));
+    });
+    
+    app.get('/api/health', (req, res) => {
+      res.status(200).json({
+        status: 'ok',
+        mqtt: mqttHandler.isConnected ? 'connected' : 'disconnected',
+        timestamp: new Date().toISOString(),
+        version: '1.0.0',
+        environment: process.env.NODE_ENV || 'development'
+      });
+    });
+    
+    app.get('/api/status', (req, res) => {
+      res.status(200).json({
+        latestSensorData,
+        mqttConnected: mqttHandler.isConnected,
+        gmailConnected: !!config.gmail.refreshToken,
+        openAiConfigured: !!config.openai.apiKey && config.openai.apiKey !== 'your-openai-api-key'
+      });
     });
     
     // Start Express server for OAuth handling
