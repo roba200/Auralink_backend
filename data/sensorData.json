@@ -1,0 +1,58 @@
+{
+  "readings": [
+    {
+      "type": "humidity",
+      "timestamp": "2025-10-02T09:34:20.192Z"
+    },
+    {
+      "type": "humidity",
+      "timestamp": "2025-10-02T09:34:25.844Z"
+    },
+    {
+      "type": "humidity",
+      "timestamp": "2025-10-02T09:34:27.060Z"
+    },
+    {
+      "type": "humidity",
+      "timestamp": "2025-10-02T09:35:12.503Z"
+    },
+    {
+      "type": "humidity",
+      "timestamp": "2025-10-02T09:35:16.309Z"
+    },
+    {
+      "type": "temperature",
+      "timestamp": "2025-10-02T09:35:40.317Z"
+    },
+    {
+      "type": "temperature",
+      "timestamp": "2025-10-02T09:36:02.107Z"
+    },
+    {
+      "value": 12,
+      "type": "temperature",
+      "timestamp": "2025-10-02T09:38:50.973Z"
+    },
+    {
+      "value": 12,
+      "type": "humidity",
+      "timestamp": "2025-10-02T09:39:03.868Z"
+    },
+    {
+      "value": 12,
+      "type": "temperature",
+      "timestamp": "2025-10-02T09:39:20.675Z"
+    },
+    {
+      "value": 12,
+      "type": "temperature",
+      "timestamp": "2025-10-02T09:39:23.435Z"
+    },
+    {
+      "value": 12,
+      "type": "temperature",
+      "timestamp": "2025-10-02T09:41:27.676Z"
+    }
+  ],
+  "lastUpdated": "2025-10-02T09:41:27.676Z"
+}
