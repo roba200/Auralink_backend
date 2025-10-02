@@ -120,27 +120,53 @@ app.use(passport.session());
 passport.use(new GoogleStrategy({
   clientID: config.gmail.clientId,
   clientSecret: config.gmail.clientSecret,
-  callbackURL: config.gmail.redirectUri
-}, (accessToken, refreshToken, profile, done) => {
-  // Store tokens and return user profile
-  const user = {
-    id: profile.id,
-    email: profile.emails[0].value,
-    name: profile.displayName,
-    accessToken,
-    refreshToken
-  };
-  
-  // Log successful authentication
-  logger.info(`User authenticated: ${user.email}`);
-  
-  // In a production app, store these tokens securely
-  if (refreshToken) {
-    logger.info('Obtained new refresh token - save this to your .env file');
-    console.log(`GMAIL_REFRESH_TOKEN=${refreshToken}`);
+  callbackURL: config.gmail.redirectUri,
+  passReqToCallback: true
+}, (req, accessToken, refreshToken, profile, done) => {
+  try {
+    // Store tokens and return user profile
+    const user = {
+      id: profile.id,
+      email: profile.emails ? profile.emails[0].value : 'unknown@example.com',
+      name: profile.displayName || 'Unknown User',
+      accessToken,
+      refreshToken
+    };
+    
+    // Log successful authentication
+    logger.info(`User authenticated: ${user.email}`);
+    
+    // In a production app, store these tokens securely
+    if (refreshToken) {
+      logger.info('Obtained new refresh token - save this to your .env file');
+      console.log('\n============= GMAIL REFRESH TOKEN =============');
+      console.log(`GMAIL_REFRESH_TOKEN=${refreshToken}`);
+      console.log('==============================================\n');
+      
+      // Update .env file with the new refresh token
+      try {
+        let envPath = path.join(__dirname, '.env');
+        let envContent = fs.readFileSync(envPath, 'utf8');
+        envContent = envContent.replace(
+          /^GMAIL_REFRESH_TOKEN=.*$/m,
+          `GMAIL_REFRESH_TOKEN=${refreshToken}`
+        );
+        fs.writeFileSync(envPath, envContent, 'utf8');
+        logger.info('Successfully updated .env file with new refresh token');
+      } catch (fileError) {
+        logger.warn('Could not automatically update .env file:', fileError.message);
+        logger.warn('Please manually update your .env file with the refresh token shown above');
+      }
+    } else {
+      logger.warn('No refresh token received. Your app may not have offline access or consent prompt settings.');
+      logger.warn('Try using the OAuth token generator script: node scripts/get-oauth-token.js');
+    }
+    
+    return done(null, user);
+  } catch (error) {
+    logger.error('Error in OAuth callback:', error);
+    return done(error);
   }
-  
-  return done(null, user);
 }));
 
 // Passport session serialization
@@ -218,23 +244,46 @@ async function processSensorData() {
       humidity: latestSensorData.humidity
     });
     
-    // Fetch unread emails
-    const emails = await emailHandler.fetchUnreadEmails(5);
-    
-    // Summarize emails if any are found
-    const emailSummary = await llmHandler.summarizeEmails(emails);
-    
-    // Determine priority level
-    const priority = await llmHandler.determinePriority(
-      {
-        temperature: latestSensorData.temperature,
-        humidity: latestSensorData.humidity
-      },
-      emails
-    );
-    
-    // Publish results back to MQTT topics
+    // First publish the quote immediately to ensure it reaches the display
     await mqttHandler.publish(config.mqtt.topics.quote, quote);
+    logger.info('Published motivational quote');
+    
+    // Email handling in a separate try-catch to prevent complete function failure
+    let emails = [];
+    let emailSummary = 'No email data available';
+    let priority = 'normal';
+    
+    try {
+      // Check if email functionality is configured
+      if (emailHandler.isEmailEnabled()) {
+        // Fetch unread emails
+        emails = await emailHandler.fetchUnreadEmails(5);
+        
+        // Summarize emails if any are found
+        if (emails.length > 0) {
+          emailSummary = await llmHandler.summarizeEmails(emails);
+        } else {
+          emailSummary = 'No unread emails';
+        }
+        
+        // Determine priority level
+        priority = await llmHandler.determinePriority(
+          {
+            temperature: latestSensorData.temperature,
+            humidity: latestSensorData.humidity
+          },
+          emails
+        );
+      } else {
+        logger.info('Email processing skipped - not configured');
+      }
+    } catch (emailError) {
+      logger.error('Error processing email data:', emailError);
+      emailSummary = 'Email processing error';
+      // Continue processing - don't let email errors stop everything
+    }
+    
+    // Publish email and priority results
     await mqttHandler.publish(config.mqtt.topics.email, emailSummary);
     await mqttHandler.publish(config.mqtt.topics.priority, priority);
     
@@ -242,6 +291,13 @@ async function processSensorData() {
     
   } catch (error) {
     logger.error('Error in processSensorData:', error);
+    
+    // Try to publish an error message via MQTT so the display shows something
+    try {
+      await mqttHandler.publish(config.mqtt.topics.quote, 'System error: Please check server logs');
+    } catch (mqttError) {
+      logger.error('Failed to publish error message:', mqttError);
+    }
   }
 }
 
@@ -312,10 +368,18 @@ async function initialize() {
     app.listen(config.server.port, () => {
       logger.info(`Server running on port ${config.server.port}`);
       
-      // If no refresh token is present, log the auth URL
-      if (!config.gmail.refreshToken) {
-        logger.warn('No Gmail refresh token found. Please authenticate using the URL below:');
+      // Check Gmail configuration and log appropriate information
+      if (!config.gmail.refreshToken || config.gmail.refreshToken.trim() === '') {
+        logger.warn('No Gmail refresh token found or invalid token provided.');
+        logger.warn('Email functionality will be disabled.');
+        logger.warn('To enable email functionality, authenticate using the URL below:');
+        console.log('\n============= GMAIL AUTHENTICATION =============');
         console.log(`Auth URL: ${emailHandler.getAuthUrl()}`);
+        console.log('After authenticating, copy the displayed refresh token');
+        console.log('and add it to the GMAIL_REFRESH_TOKEN variable in your .env file.');
+        console.log('=================================================\n');
+      } else {
+        logger.info('Gmail refresh token configured - email functionality is enabled');
       }
     });
     

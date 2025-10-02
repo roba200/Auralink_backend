@@ -33,11 +33,22 @@ class EmailHandler {
       this.redirectUri
     );
     
-    this.oauth2Client.setCredentials({
-      refresh_token: this.refreshToken
-    });
-    
-    logger.debug('OAuth2 client initialized');
+    if (this.refreshToken && this.refreshToken.trim() !== '') {
+      this.oauth2Client.setCredentials({
+        refresh_token: this.refreshToken
+      });
+      logger.debug('OAuth2 client initialized with refresh token');
+    } else {
+      logger.warn('OAuth2 client initialized without refresh token - email features will be disabled');
+    }
+  }
+  
+  /**
+   * Check if email functionality is available (has valid refresh token)
+   * @returns {boolean} True if email features are available
+   */
+  isEmailEnabled() {
+    return this.refreshToken && this.refreshToken.trim() !== '';
   }
   
   /**
@@ -78,6 +89,12 @@ class EmailHandler {
    * @returns {Promise<Array>} Array of email objects
    */
   async fetchUnreadEmails(maxResults = 5) {
+    // Skip if email functionality is not configured
+    if (!this.isEmailEnabled()) {
+      logger.warn('Email fetch skipped - no valid refresh token configured');
+      return [];
+    }
+    
     try {
       // Create Gmail API client
       const gmail = google.gmail({version: 'v1', auth: this.oauth2Client});
@@ -128,12 +145,20 @@ class EmailHandler {
     } catch (error) {
       logger.error('Error fetching emails:', error);
       
-      // Check if it's an authentication error
-      if (error.code === 401) {
-        logger.warn('Authentication error - token may be expired');
+      // Handle specific error cases
+      if (error.message && error.message.includes('invalid_grant')) {
+        logger.warn('OAuth invalid_grant error - refresh token may be invalid or revoked');
+        logger.info('To fix: Visit the auth URL to get a new refresh token: ' + this.getAuthUrl());
+        return []; // Return empty array instead of throwing to keep app running
       }
       
-      throw error;
+      if (error.code === 401 || (error.response && error.response.status === 401)) {
+        logger.warn('Authentication error (401) - token may be expired');
+        return []; // Return empty array instead of throwing to keep app running
+      }
+      
+      // For other errors, return empty array to keep the app running
+      return [];
     }
   }
   

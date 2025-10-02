@@ -114,26 +114,27 @@
             <h2>MQTT Connection</h2>
             <div class="form-group">
                 <label for="brokerUrl">Broker URL:</label>
-                <input type="text" id="brokerUrl" placeholder="broker.hivemq.com">
+                <input type="text" id="brokerUrl" value="f039084803714f88ba3c38627470f146.s1.eu.hivemq.cloud" placeholder="broker.hivemq.com">
             </div>
             <div class="form-group">
                 <label for="brokerPort">Port:</label>
-                <input type="number" id="brokerPort" value="8884">
+                <input type="number" id="brokerPort" value="8883">
             </div>
             <div class="form-group">
                 <label for="clientId">Client ID:</label>
                 <input type="text" id="clientId" value="auralink-test-client">
             </div>
             <div class="form-group">
-                <label for="username">Username (optional):</label>
-                <input type="text" id="username">
+                <label for="username">Username:</label>
+                <input type="text" id="username" value="username">
             </div>
             <div class="form-group">
-                <label for="password">Password (optional):</label>
-                <input type="password" id="password">
+                <label for="password">Password:</label>
+                <input type="password" id="password" value="Test123456">
             </div>
             <button id="connectBtn">Connect</button>
             <button id="disconnectBtn">Disconnect</button>
+            <button id="testMqttBtn">Test MQTT</button>
         </div>
 
         <div class="grid">
@@ -191,6 +192,7 @@
         // Elements
         const connectBtn = document.getElementById('connectBtn');
         const disconnectBtn = document.getElementById('disconnectBtn');
+        const testMqttBtn = document.getElementById('testMqttBtn');
         const sendTempBtn = document.getElementById('sendTempBtn');
         const sendHumBtn = document.getElementById('sendHumBtn');
         const sendBothBtn = document.getElementById('sendBothBtn');
@@ -205,7 +207,8 @@
         const statusDisplay = document.getElementById('statusDisplay');
         const logDisplay = document.getElementById('logDisplay');
         
-        // Topics
+        // Topics - Make sure these match EXACTLY with your backend configuration
+        // These are the default topics in the .env file
         const TOPIC_TEMPERATURE = 'auralink/sensors/temperature';
         const TOPIC_HUMIDITY = 'auralink/sensors/humidity';
         const TOPIC_QUOTE = 'auralink/display/quote';
@@ -217,22 +220,42 @@
             const now = new Date();
             const timestamp = now.toLocaleTimeString();
             const logEntry = document.createElement('div');
+            
+            // Add different styles for different types of messages
+            if (message.includes('Error') || message.includes('failed')) {
+                logEntry.style.color = '#d9534f';  // Red for errors
+            } else if (message.includes('Connected') || message.includes('success')) {
+                logEntry.style.color = '#5cb85c';  // Green for success
+            } else if (message.includes('Received message')) {
+                logEntry.style.color = '#5bc0de';  // Blue for received messages
+            }
+            
             logEntry.textContent = `[${timestamp}] ${message}`;
             logDisplay.appendChild(logEntry);
             logDisplay.scrollTop = logDisplay.scrollHeight;
+            
+            // If this is an important message, also display it in the status area
+            if (message.includes('Error') || 
+                message.includes('Connected') || 
+                message.includes('Received message')) {
+                statusDisplay.textContent = `${timestamp}: ${message}`;
+            }
         }
         
         // Connect to MQTT broker
         connectBtn.addEventListener('click', () => {
-            const brokerUrl = document.getElementById('brokerUrl').value || 'broker.hivemq.com';
-            const brokerPort = parseInt(document.getElementById('brokerPort').value) || 8884;
-            const clientId = document.getElementById('clientId').value || `auralink-test-${Math.random().toString(16).substr(2, 8)}`;
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
+            const brokerUrl = document.getElementById('brokerUrl').value || 'f039084803714f88ba3c38627470f146.s1.eu.hivemq.cloud';
+            const brokerPort = parseInt(document.getElementById('brokerPort').value) || 8883;
+            const clientId = document.getElementById('clientId').value || `auralink-test-${Math.random().toString(16).substr(2, 8)}-${Date.now()}`;
+            const username = document.getElementById('username').value || 'username';
+            const password = document.getElementById('password').value || 'Test123456';
             
             try {
+                // Remove any protocol prefix from the broker URL
+                const cleanBrokerUrl = brokerUrl.replace(/^(mqtt|mqtts):\/\//, '');
+                
                 // Create a client instance
-                client = new Paho.MQTT.Client(brokerUrl, brokerPort, clientId);
+                client = new Paho.MQTT.Client(cleanBrokerUrl, brokerPort, clientId);
                 
                 // Set callback handlers
                 client.onConnectionLost = onConnectionLost;
@@ -241,17 +264,16 @@
                 // Connect the client
                 const options = {
                     useSSL: true,
-                    timeout: 3,
+                    timeout: 5,
                     onSuccess: onConnect,
-                    onFailure: onFailure
+                    onFailure: onFailure,
+                    keepAliveInterval: 60,
+                    userName: username,
+                    password: password
                 };
                 
-                if (username) {
-                    options.userName = username;
-                    options.password = password;
-                }
-                
-                log(`Connecting to ${brokerUrl}:${brokerPort}...`);
+                log(`Connecting to ${cleanBrokerUrl}:${brokerPort}...`);
+                log(`Using client ID: ${clientId}`);
                 client.connect(options);
                 
             } catch (error) {
@@ -336,27 +358,75 @@
             logDisplay.innerHTML = '';
         });
         
+        // Test MQTT connection and topics
+        testMqttBtn.addEventListener('click', () => {
+            if (!isConnected) {
+                log('Not connected to MQTT broker. Please connect first.');
+                return;
+            }
+            
+            log('Testing MQTT connection and subscriptions...');
+            
+            // Test subscriptions by publishing test messages to all display topics
+            const testMessage = `Test message from client at ${new Date().toLocaleTimeString()}`;
+            
+            try {
+                // Publish test messages to display topics
+                log(`Publishing test message to ${TOPIC_QUOTE}`);
+                publishMessage(TOPIC_QUOTE, testMessage);
+                
+                setTimeout(() => {
+                    log(`Publishing test message to ${TOPIC_EMAIL}`);
+                    publishMessage(TOPIC_EMAIL, testMessage);
+                }, 500);
+                
+                setTimeout(() => {
+                    log(`Publishing test message to ${TOPIC_PRIORITY}`);
+                    publishMessage(TOPIC_PRIORITY, testMessage);
+                }, 1000);
+                
+                log('Test messages sent. Check if they appear in the respective display areas.');
+            } catch (error) {
+                log(`Error testing MQTT: ${error.message}`);
+            }
+        });
+        
         // MQTT Connection callbacks
         function onConnect() {
-            log('Connected to MQTT broker');
+            log('Connected to MQTT broker successfully!');
             updateConnectionStatus(true);
             
-            // Subscribe to display topics
-            client.subscribe(TOPIC_QUOTE);
-            client.subscribe(TOPIC_EMAIL);
-            client.subscribe(TOPIC_PRIORITY);
-            
-            log('Subscribed to display topics');
+            // Subscribe to display topics with QoS 1
+            try {
+                log(`Subscribing to topic: ${TOPIC_QUOTE}`);
+                client.subscribe(TOPIC_QUOTE, { qos: 1 });
+                
+                log(`Subscribing to topic: ${TOPIC_EMAIL}`);
+                client.subscribe(TOPIC_EMAIL, { qos: 1 });
+                
+                log(`Subscribing to topic: ${TOPIC_PRIORITY}`);
+                client.subscribe(TOPIC_PRIORITY, { qos: 1 });
+                
+                log('Successfully subscribed to all display topics');
+                
+                // After successful connection, check backend status
+                setTimeout(() => {
+                    document.getElementById('checkStatusBtn').click();
+                }, 1000);
+            } catch (error) {
+                log(`Error subscribing to topics: ${error.message}`);
+            }
         }
         
         function onFailure(responseObject) {
             log(`Connection failed: ${responseObject.errorMessage}`);
+            log(`Error code: ${responseObject.errorCode}`);
             updateConnectionStatus(false);
         }
         
         function onConnectionLost(responseObject) {
             if (responseObject.errorCode !== 0) {
-                log(`Connection lost: ${responseObject.errorMessage}`);
+                log(`Connection lost: ${responseObject.errorMessage} (Code: ${responseObject.errorCode})`);
                 updateConnectionStatus(false);
             }
         }
@@ -365,18 +435,37 @@
             const topic = message.destinationName;
             const payload = message.payloadString;
             
-            log(`Received message on ${topic}: ${payload}`);
+            log(`Received message on ${topic}`);
+            log(`Message content: ${payload}`);
             
-            switch (topic) {
-                case TOPIC_QUOTE:
-                    quoteDisplay.textContent = payload;
-                    break;
-                case TOPIC_EMAIL:
-                    emailDisplay.textContent = payload;
-                    break;
-                case TOPIC_PRIORITY:
-                    priorityDisplay.textContent = payload;
-                    break;
+            try {
+                switch (topic) {
+                    case TOPIC_QUOTE:
+                        quoteDisplay.textContent = payload;
+                        quoteDisplay.style.backgroundColor = '#e6f7ff';
+                        setTimeout(() => {
+                            quoteDisplay.style.backgroundColor = '#f9f9f9';
+                        }, 2000);
+                        break;
+                    case TOPIC_EMAIL:
+                        emailDisplay.textContent = payload;
+                        emailDisplay.style.backgroundColor = '#e6f7ff';
+                        setTimeout(() => {
+                            emailDisplay.style.backgroundColor = '#f9f9f9';
+                        }, 2000);
+                        break;
+                    case TOPIC_PRIORITY:
+                        priorityDisplay.textContent = payload;
+                        priorityDisplay.style.backgroundColor = '#e6f7ff';
+                        setTimeout(() => {
+                            priorityDisplay.style.backgroundColor = '#f9f9f9';
+                        }, 2000);
+                        break;
+                    default:
+                        log(`Received message on unexpected topic: ${topic}`);
+                }
+            } catch (error) {
+                log(`Error processing message: ${error.message}`);
             }
         }
         
@@ -402,8 +491,14 @@
             // Fill in broker URL if this page is hosted on Vercel
             const hostname = window.location.hostname;
             if (hostname.includes('vercel.app')) {
-                document.getElementById('brokerUrl').value = 'broker.hivemq.com';
+                document.getElementById('brokerUrl').value = 'f039084803714f88ba3c38627470f146.s1.eu.hivemq.cloud';
+                document.getElementById('brokerPort').value = '8883';
+                document.getElementById('username').value = 'username';
+                document.getElementById('password').value = 'Test123456';
             }
+            
+            log('MQTT client updated with correct broker settings. Click Connect to start.');
+            log('After connecting, use the Test MQTT button to verify message reception.');
         });
     </script>
 </body>

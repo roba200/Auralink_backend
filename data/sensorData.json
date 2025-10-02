@@ -122,7 +122,177 @@
       "value": 12,
       "type": "temperature",
       "timestamp": "2025-10-02T10:22:15.599Z"
+    },
+    {
+      "value": 12,
+      "type": "temperature",
+      "timestamp": "2025-10-02T10:37:28.546Z"
+    },
+    {
+      "value": 12,
+      "type": "humidity",
+      "timestamp": "2025-10-02T10:37:39.534Z"
+    },
+    {
+      "value": 12,
+      "type": "humidity",
+      "timestamp": "2025-10-02T10:38:39.992Z"
+    },
+    {
+      "value": 22.5,
+      "type": "temperature",
+      "timestamp": "2025-10-02T10:40:38.492Z"
+    },
+    {
+      "value": 22.5,
+      "type": "temperature",
+      "timestamp": "2025-10-02T10:40:43.711Z"
+    },
+    {
+      "value": 45,
+      "type": "humidity",
+      "timestamp": "2025-10-02T10:40:44.210Z"
+    },
+    {
+      "value": 22.5,
+      "type": "temperature",
+      "timestamp": "2025-10-02T10:42:05.785Z"
+    },
+    {
+      "value": 45,
+      "type": "humidity",
+      "timestamp": "2025-10-02T10:42:06.290Z"
+    },
+    {
+      "value": 22.5,
+      "type": "temperature",
+      "timestamp": "2025-10-02T10:42:18.197Z"
+    },
+    {
+      "value": 45,
+      "type": "humidity",
+      "timestamp": "2025-10-02T10:42:18.707Z"
+    },
+    {
+      "value": 45,
+      "type": "humidity",
+      "timestamp": "2025-10-02T10:42:21.659Z"
+    },
+    {
+      "value": 22.5,
+      "type": "temperature",
+      "timestamp": "2025-10-02T10:49:05.918Z"
+    },
+    {
+      "value": 45,
+      "type": "humidity",
+      "timestamp": "2025-10-02T10:49:06.436Z"
+    },
+    {
+      "value": 22.5,
+      "type": "temperature",
+      "timestamp": "2025-10-02T10:49:34.679Z"
+    },
+    {
+      "value": 45,
+      "type": "humidity",
+      "timestamp": "2025-10-02T10:49:35.181Z"
+    },
+    {
+      "value": 12,
+      "type": "humidity",
+      "timestamp": "2025-10-02T10:58:11.505Z"
+    },
+    {
+      "value": 12,
+      "type": "humidity",
+      "timestamp": "2025-10-02T10:58:37.241Z"
+    },
+    {
+      "value": 22.5,
+      "type": "temperature",
+      "timestamp": "2025-10-02T10:59:03.824Z"
+    },
+    {
+      "value": 45,
+      "type": "humidity",
+      "timestamp": "2025-10-02T10:59:04.325Z"
+    },
+    {
+      "value": 22.5,
+      "type": "temperature",
+      "timestamp": "2025-10-02T10:59:35.444Z"
+    },
+    {
+      "value": 45,
+      "type": "humidity",
+      "timestamp": "2025-10-02T10:59:35.952Z"
+    },
+    {
+      "value": 45,
+      "type": "humidity",
+      "timestamp": "2025-10-02T10:59:40.503Z"
+    },
+    {
+      "value": 22.5,
+      "type": "temperature",
+      "timestamp": "2025-10-02T10:59:44.491Z"
+    },
+    {
+      "value": 45,
+      "type": "humidity",
+      "timestamp": "2025-10-02T10:59:44.998Z"
+    },
+    {
+      "value": 22.5,
+      "type": "temperature",
+      "timestamp": "2025-10-02T15:57:51.584Z"
+    },
+    {
+      "value": 45,
+      "type": "humidity",
+      "timestamp": "2025-10-02T15:57:52.152Z"
+    },
+    {
+      "value": 22.5,
+      "type": "temperature",
+      "timestamp": "2025-10-02T15:59:15.758Z"
+    },
+    {
+      "value": 45,
+      "type": "humidity",
+      "timestamp": "2025-10-02T15:59:16.296Z"
+    },
+    {
+      "value": 22.5,
+      "type": "temperature",
+      "timestamp": "2025-10-02T15:59:31.863Z"
+    },
+    {
+      "value": 45,
+      "type": "humidity",
+      "timestamp": "2025-10-02T15:59:32.357Z"
+    },
+    {
+      "value": 22.5,
+      "type": "temperature",
+      "timestamp": "2025-10-02T16:01:02.021Z"
+    },
+    {
+      "value": 45,
+      "type": "humidity",
+      "timestamp": "2025-10-02T16:01:02.511Z"
+    },
+    {
+      "value": 22.5,
+      "type": "temperature",
+      "timestamp": "2025-10-02T16:05:52.616Z"
+    },
+    {
+      "value": 45,
+      "type": "humidity",
+      "timestamp": "2025-10-02T16:05:53.107Z"
     }
   ],
-  "lastUpdated": "2025-10-02T10:22:15.599Z"
+  "lastUpdated": "2025-10-02T16:05:53.107Z"
 }
